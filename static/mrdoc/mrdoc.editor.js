@@ -693,3 +693,9 @@ function getOptimizedSheets() {
         return optimizedSheet;
     });
 };
+
+function improveUseCases(){
+    // 获取选区数据
+    console.log(luckysheet.getRangeJson(false));
+    return;
+};

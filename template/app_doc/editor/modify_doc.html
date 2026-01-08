@@ -133,6 +133,7 @@
             <div style="padding-bottom:0px;">
                 <div class="layui-input-block" style="margin-left:0px;">
                     <input type="text" name="doc-name" id="doc-name" required lay-verify="required" placeholder="请输入文档标题" value="{{ doc.name }}" class="layui-input">
+                    <button class="layui-btn layui-btn-sm layui-btn-normal layui-btn-radius pull-left" style="margin-top:10px;" title="完善用例" id="improve_use_cases">完善用例</button>
                 </div>
             </div>
             <br/>
@@ -321,6 +322,10 @@
                 }
             })
         };
+        
+        $("#improve_use_cases").click(function(){
+            improveUseCases();
+        })
         
         // 保存文档 - 只更新内容，不变更状态
         $("#modify_save_doc").click(function(){
