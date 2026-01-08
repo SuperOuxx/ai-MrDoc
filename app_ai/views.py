@@ -136,8 +136,8 @@ def ai_config(request):
 
 from openai import OpenAI
 
-AI_KEY = "_AEI-SDw8YQp5uQ"
-AI_BASE_URL = 'https://ms-p56hcv4q-100040737563-sw.gw.ap-nanjing.ti.tencentcs.com/ms-p56hcv4q/v1'
+AI_KEY = ""
+AI_BASE_URL = ''
 client = OpenAI(
     base_url=AI_BASE_URL,
     api_key=AI_KEY
