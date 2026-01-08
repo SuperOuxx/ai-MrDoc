@@ -25,9 +25,14 @@ from app_ai.utils import get_sys_value
 from loguru import logger
 import json
 import sys
+import os
 import requests
 import datetime
 import time
+from dotenv import load_dotenv
+
+# 加载 .env 文件
+load_dotenv()
 
 # 返回用户标识符
 def get_user_identifier(request):
@@ -136,8 +141,10 @@ def ai_config(request):
 
 from openai import OpenAI
 
-AI_KEY = ""
-AI_BASE_URL = ''
+# 从环境变量获取 AI 配置
+AI_KEY = os.getenv("AI_KEY", "")
+AI_BASE_URL = os.getenv("AI_BASE_URL", "")
+
 client = OpenAI(
     base_url=AI_BASE_URL,
     api_key=AI_KEY

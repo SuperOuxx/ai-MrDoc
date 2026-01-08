@@ -694,8 +694,115 @@ function getOptimizedSheets() {
     });
 };
 
+
 function improveUseCases(){
+    if (typeof editor_mode === 'undefined' || editor_mode !== 4 || typeof luckysheet === 'undefined') {
+        layer.msg("请在在线表格中使用此功能");
+        return;
+    }
+
     // 获取选区数据
-    console.log(luckysheet.getRangeJson(false));
-    return;
+    var rangeJson = luckysheet.getRangeJson(false);
+    if (!rangeJson || rangeJson.length === 0) {
+        layer.msg("请先选择需要完善的表格区域");
+        return;
+    }
+
+    layer.open({
+        type: 1,
+        title: "AI完善用例",
+        id: "aiImproveUseCases",
+        area: ["800px", "600px"],
+        content: `
+            <div style="padding: 20px;">
+                <div class="layui-form-item">
+                    <textarea id="aiUseCaseResult" class="layui-textarea" style="height: 420px;" placeholder="AI生成中..." readonly></textarea>
+                </div>
+                <div class="layui-form-item">
+                    <button class="layui-btn layui-btn-sm layui-btn-normal" id="aiUseCaseCopy">复制结果</button>
+                </div>
+            </div>
+        `,
+        success: function () {
+            var ai_text = "";
+            var $result = $("#aiUseCaseResult");
+
+            fetch("/ai/text_generate/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    inputs: {
+                        query: "请根据以下选区JSON完善用例，输出完整内容：\n" + JSON.stringify(rangeJson)
+                    }
+                })
+            })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error("网络错误");
+                }
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                function processStream(chunkText) {
+                    const events = chunkText.split("\n\n");
+                    events.forEach(function (eventText) {
+                        if (eventText.startsWith("data:")) {
+                            const eventData = eventText.slice(5).trim();
+                            try {
+                                const event = JSON.parse(eventData);
+                                if (event.event === "message") {
+                                    ai_text += event.answer;
+                                    $result.val(ai_text);
+                                    $result.scrollTop($result[0].scrollHeight);
+                                } else if (event.event === "message_end") {
+                                    // end
+                                }
+                            } catch (e) {
+                                // ignore parse errors for partial chunks
+                            }
+                        }
+                    });
+                }
+
+                function readStream() {
+                    reader.read().then(function (result) {
+                        if (result.done) {
+                            return;
+                        }
+                        const chunkText = decoder.decode(result.value, { stream: true });
+                        processStream(chunkText);
+                        readStream();
+                    }).catch(function () {
+                        layer.msg("AI响应读取失败");
+                    });
+                }
+
+                readStream();
+            })
+            .catch(function () {
+                layer.msg("AI请求失败，请稍后重试");
+            });
+
+            $("#aiUseCaseCopy").on("click", function () {
+                var text = $result.val();
+                if (!text) {
+                    layer.msg("没有可复制的内容");
+                    return;
+                }
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(text).then(function () {
+                        layer.msg("已复制");
+                    });
+                } else {
+                    $result.prop("readonly", false);
+                    $result.select();
+                    document.execCommand("copy");
+                    $result.prop("readonly", true);
+                    layer.msg("已复制");
+                }
+            });
+        }
+    });
 };
