@@ -7,4 +7,5 @@ from app_ai import views
 urlpatterns = [
     path('config/',views.ai_config,name="ai_config"), # AI配置页面
     path('text_generate/',views.ai_text_genarate,name="ai_text_genarate"), # AI文本生成
+    path('openai_text_generate/',views.openai_text_generate,name="openai_text_generate"), # AI文本生成
 ]

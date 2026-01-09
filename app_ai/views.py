@@ -150,96 +150,102 @@ client = OpenAI(
     api_key=AI_KEY
 )
 
-# # AI文本写作
-# @csrf_exempt
-# @login_required
-# @dynamic_rate_limit
-# def ai_text_genarate(request):
-#     def event_stream():
-#         ai_frame = getattr(SysSetting.objects.filter(types='ai', name='ai_frame').first(), 'value', '')
-#         # 获取用户消息
-#         user_input = json.loads(request.body)['inputs']['query']
+# AI文本写作
+@csrf_exempt
+@login_required
+@dynamic_rate_limit
+def ai_text_genarate(request):
+    def event_stream():
+        ai_frame = getattr(SysSetting.objects.filter(types='ai', name='ai_frame').first(), 'value', '')
 
-#         try:
-#             if ai_frame == '1':  # Dify
-#                 dify_api_address = getattr(SysSetting.objects.filter(types='ai', name='ai_dify_api_address').first(),
-#                                         'value',
-#                                         '')
-#                 dify_textgenerate_key = getattr(
-#                     SysSetting.objects.filter(types='ai', name='ai_dify_textgenerate_api_key').first(),
-#                     'value', '')
+        # 调试：查看原始请求体
+        raw_body = request.body.decode('utf-8')
+        logger.info(f"收到的原始请求体: {raw_body}")
 
-#                 dify_textgenerate_rate_limit = getattr(
-#                     SysSetting.objects.filter(types='ai', name='ai_dify_textgenerate_rate_limit').first(),
-#                     'value', 0)
+        # 获取用户消息
+        try:
+            request_json = json.loads(request.body)
+            logger.info(f"解析后的 JSON: {request_json}")
+            user_input = request_json['inputs']['query']
+        except KeyError as e:
+            logger.error(f"解析请求数据失败: {e}, 请求数据: {request_json}")
+            yield f"event: error\ndata: {json.dumps({'message': f'请求数据格式错误: {str(e)}'})}\n\n"
+            return
 
-#                 # 构造Dify请求头
-#                 headers = {
-#                     'Authorization': 'Bearer {api_key}'.format(api_key=decrypt_data(dify_textgenerate_key)),
-#                     'Content-Type': 'application/json',
-#                     'Accept': 'text/event-stream'
-#                 }
+        try:
+            if ai_frame == '1':  # Dify
+                dify_api_address = getattr(SysSetting.objects.filter(types='ai', name='ai_dify_api_address').first(),
+                                        'value',
+                                        '')
+                dify_textgenerate_key = getattr(
+                    SysSetting.objects.filter(types='ai', name='ai_dify_textgenerate_api_key').first(),
+                    'value', '')
 
-#                 # 发起流式请求
-#                 with requests.post(
-#                         f'{dify_api_address}/completion-messages',
-#                         headers=headers,
-#                         data=json.dumps({
-#                             'inputs':{'query':user_input},
-#                             'response_mode':'streaming',
-#                             'user':request.user.username
-#                         }),
-#                         stream=True
-#                 ) as r:
-#                     r.raise_for_status()
+                dify_textgenerate_rate_limit = getattr(
+                    SysSetting.objects.filter(types='ai', name='ai_dify_textgenerate_rate_limit').first(),
+                    'value', 0)
 
-#                     # 转发数据流
-#                     for chunk in r.iter_content(chunk_size=None):
-#                         if chunk:
-#                             yield chunk
-#                             # yield f"data: {chunk.decode('utf-8')}\n\n"
+                # 构造Dify请求头
+                headers = {
+                    'Authorization': 'Bearer {api_key}'.format(api_key=decrypt_data(dify_textgenerate_key)),
+                    'Content-Type': 'application/json',
+                    'Accept': 'text/event-stream'
+                }
 
-#             else:
-#                 # 发起流式请求
-#                 response = client.chat.completions.create(
-#                     model="ds-r1",
-#                     messages=[
-#                         { 'role': 'system', 'content': "你是一个软件测试专家" },
-#                         { 'role': 'user', 'content': user_input }
-#                     ],
-#                     stream=True
-#                 )
-#                 for chunk in response:
-#                     if chunk:
-#                         content = chunk.choices[0].delta.content
-                        
-#                         if content:  # Only send non-empty content
-#                             print(content)
-#                             event_data = {
-#                                 "event": "message",
-#                                 "answer": content
-#                             }
-#                             yield f"data: {json.dumps(event_data)}\n\n"
+                # 构造请求数据
+                # 注意：根据 Dify 应用配置，变量名是 'inputs' 而不是 'query'
+                request_data = {
+                    'inputs': {
+                        'inputs': user_input,  # Dify 应用中的变量名
+                    },
+                    'response_mode': 'streaming',
+                    'user': request.user.username
+                }
 
-#                 # When stream completes:
-#                 yield f"data: {json.dumps({'event': 'message_end'})}\n\n"
+                # 调试日志
+                logger.info(f"Dify API 地址: {dify_api_address}/completion-messages")
+                logger.info(f"请求数据: {request_data}")
 
-    
-#         except Exception as e:
-#             yield f"event: error\ndata: {json.dumps({'message': str(e)})}\n\n"
+                # 发起流式请求
+                with requests.post(
+                        f'{dify_api_address}/completion-messages',
+                        headers=headers,
+                        json=request_data,
+                        stream=True
+                ) as r:
+                    logger.info(f"响应状态码: {r.status_code}")
+                    logger.info(f"响应头: {r.headers}")
 
-#     return StreamingHttpResponse(
-#         event_stream(),
-#         content_type='text/event-stream',
-#         headers={'X-Accel-Buffering': 'no'}  # 禁用Nginx缓冲
-#     )
+                    # 如果响应不成功，记录错误信息
+                    if r.status_code != 200:
+                        error_text = r.text
+                        logger.error(f"Dify API 错误响应: {error_text}")
+                        yield f"event: error\ndata: {json.dumps({'message': error_text})}\n\n"
+                        return
+
+                    # 转发数据流 - 使用 iter_lines() 处理 SSE 流
+                    for line in r.iter_lines():
+                        if line:
+                            decoded_line = line.decode('utf-8')
+                            # 直接转发 SSE 格式的数据
+                            yield f"{decoded_line}\n"
+
+            
+        except Exception as e:
+            yield f"event: error\ndata: {json.dumps({'message': str(e)})}\n\n"
+
+    return StreamingHttpResponse(
+        event_stream(),
+        content_type='text/event-stream',
+        headers={'X-Accel-Buffering': 'no'}  # 禁用Nginx缓冲
+    )
 
 
 # AI文本写作
 @csrf_exempt
 @login_required
 @dynamic_rate_limit
-def ai_text_genarate(request):
+def openai_text_generate(request):
     def event_stream():
         ai_frame = getattr(SysSetting.objects.filter(types='ai', name='ai_frame').first(), 'value', '')
         # 获取用户消息
@@ -261,7 +267,6 @@ def ai_text_genarate(request):
                     content = chunk.choices[0].delta.content
                     
                     if content:  # Only send non-empty content
-                        print(content)
                         event_data = {
                             "event": "message",
                             "answer": content
