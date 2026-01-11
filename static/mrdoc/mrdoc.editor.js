@@ -727,7 +727,7 @@ function improveUseCases(){
             var ai_text = "";
             var $result = $("#aiUseCaseResult");
 
-            fetch("/ai/text_generate/", {
+            fetch("/ai/openai_text_generate/", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
