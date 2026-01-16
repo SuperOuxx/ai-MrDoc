@@ -32,6 +32,7 @@ urlpatterns = [
     path('register/', admin_views.register, name="register"),  # 注册
     path('check_code/', admin_views.check_code, name='check_code'),  # 注册验证码
     path('admin/',include('app_admin.urls'),), # admin应用
+    path('api/v1/', include('app_api_v1.urls')), # 新版 API v1
     path('api/',include('app_api.urls')), # 用户 Token API 接口
     path('api_app/',include('app_api.urls_app')), # RESTFUL API 接口
     path('ai/',include('app_ai.urls')), # AI 接入
