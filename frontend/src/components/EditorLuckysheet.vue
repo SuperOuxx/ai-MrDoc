@@ -7,6 +7,7 @@ import 'luckysheet/dist/assets/iconfont/iconfont.css'
 const props = withDefaults(
   defineProps<{
     modelValue: any[]
+    readonly?: boolean
   }>(),
   {
     modelValue: () => [
@@ -20,6 +21,7 @@ const props = withDefaults(
         row: 30,
       },
     ],
+    readonly: false,
   }
 )
 
@@ -33,18 +35,27 @@ const initialized = ref(false)
 
 const loadSheet = async () => {
   const luckysheet = (await import('luckysheet')).default
-  luckysheet.create({
+  const options: Record<string, any> = {
     container: containerId,
     showinfobar: false,
     lang: 'zh',
     data: props.modelValue,
-    hook: {
+  }
+
+  if (props.readonly) {
+    options.allowEdit = false
+    options.showtoolbar = false
+    options.showinfobar = false
+  } else {
+    options.hook = {
       workbookChange: (data: any) => {
         emits('update:modelValue', data)
         emits('change', data)
       },
-    },
-  })
+    }
+  }
+
+  luckysheet.create(options)
   initialized.value = true
 }
 

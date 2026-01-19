@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { fetchDoc, fetchDocTags, updateDocTags, fetchTags, fetchDocShare, updateDocShare } from '../services/api'
 import type { Doc, DocShare } from '../types/api'
 import AccessCodeModal from '../components/AccessCodeModal.vue'
+import DocPreviewMarkdown from '../components/DocPreviewMarkdown.vue'
+import EditorLuckysheet from '../components/EditorLuckysheet.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -19,6 +21,37 @@ const share = ref<DocShare | null>(null)
 const shareType = ref(0)
 const shareValue = ref('')
 const shareEnabled = ref(true)
+const sheetData = ref<any[]>([])
+
+const emptySheet = () => [
+  {
+    name: 'Sheet1',
+    color: '',
+    status: 1,
+    order: 0,
+    data: [[]],
+    column: 20,
+    row: 30,
+  },
+]
+
+const parseSheet = (raw?: string | null) => {
+  if (!raw) return emptySheet()
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : emptySheet()
+  } catch {
+    return emptySheet()
+  }
+}
+
+const markdownContent = computed(() => doc.value?.pre_content || doc.value?.content || '')
+const htmlContent = computed(() => doc.value?.content || '')
+const isSheet = computed(() => doc.value?.editor_mode === 4)
+const isHtml = computed(() => doc.value?.editor_mode === 3)
+const isMarkdown = computed(() => !isSheet.value && !isHtml.value)
+const hasMarkdown = computed(() => markdownContent.value.trim().length > 0)
+const hasHtml = computed(() => htmlContent.value.trim().length > 0)
 
 const setAccessCodeCookie = (projectId: number, code: string) => {
   const name = `viewcode-${projectId}`
@@ -32,6 +65,9 @@ const load = async () => {
     const res = await fetchDoc(route.params.id as string)
     doc.value = res.data.data
     pendingProjectId.value = doc.value.top_doc
+    if (doc.value.editor_mode === 4) {
+      sheetData.value = parseSheet(doc.value.pre_content)
+    }
     const tagRes = await fetchDocTags(doc.value.id)
     tags.value = tagRes.data.data
     const shareRes = await fetchDocShare(doc.value.id)
@@ -140,9 +176,15 @@ onMounted(load)
         </div>
         <p class="muted">Status: {{ doc.status }} · Top project: {{ doc.top_doc }}</p>
         <div class="stack">
-          <span class="muted">Content preview:</span>
-          <div class="card" style="background: rgba(255,255,255,0.02); border-style: dashed;">
-            <pre style="margin: 0; white-space: pre-wrap;">{{ doc.pre_content || doc.content || 'No content' }}</pre>
+          <span class="muted">Preview:</span>
+          <div class="card" style="background: rgba(255,255,255,0.02);">
+            <EditorLuckysheet v-if="isSheet" v-model="sheetData" :readonly="true" />
+            <template v-else-if="isHtml">
+              <div v-if="hasHtml" class="doc-html" v-html="htmlContent" />
+              <div v-else class="muted">No content</div>
+            </template>
+            <DocPreviewMarkdown v-else-if="isMarkdown && hasMarkdown" :content="markdownContent" />
+            <div v-else class="muted">No content</div>
           </div>
         </div>
       </div>
