@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/2.1/ref/settings/
 """
 
 import os
+from datetime import timedelta
 from configparser import ConfigParser,RawConfigParser
 from loguru import logger
 
@@ -71,7 +72,10 @@ INSTALLED_APPS = [
     'app_ai',
     'django.contrib.sitemaps', # 站点地图
     'rest_framework',
+    'drf_spectacular',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
+    'app_api_v1',
 ]
 
 # 忽略浏览器的Accept-Language，强制使用设置的语言
@@ -260,9 +264,39 @@ ALLOWED_IMG = CONFIG.get("image_upload","suffix_name",fallback="jpg,jpeg,gif,png
 # 附件格式验证
 CHECK_ATTACHMENT_SUFFIX = CONFIG.getboolean('attachment_suffix','is_enable',fallback=True)
 
+API_V1_VERSION = "1.0"
+
 REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.AllowAny',
+    ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10
+    'PAGE_SIZE': 10,
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'MrDoc API',
+    'DESCRIPTION': 'MrDoc API v1 (DRF + JWT)',
+    'VERSION': API_V1_VERSION,
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],
+    'COMPONENT_SPLIT_REQUEST': True,
 }
 
 # 全文检索配置
@@ -325,6 +359,7 @@ else:
 from corsheaders.defaults import default_headers
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "token",
+    "api-version",
     'access-control-allow-origin',
 ]
 
